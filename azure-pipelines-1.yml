@@ -1,0 +1,39 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+#Azure Pipeline With Teeragrunt
+
+
+trigger:
+ branches:
+   include:
+     - main
+
+pool:
+  vmImage: ubuntu-latest
+
+parameters:
+  - name: environment
+    displayName: "choose Env"
+    type: string
+    default: "dev"
+    values:
+      - dev
+      - prod
+      - qa
+stages:
+  - stage: Terraform
+    jobs:
+      - job: TerragruntDeploy
+        steps:
+          - script:  |
+              cd example/path/${{parameters.envrionment }}
+              terragrunt init
+              terragrunt plan -out plan.tfout
+            displayName: "Terragrunt Plan"
+          - script: |
+              cd example/path/${{parameters.envrionment }}
+              terragrunt apply  -auto-approve plan.tfout
+            displayName: "Terragrunt Apply"
