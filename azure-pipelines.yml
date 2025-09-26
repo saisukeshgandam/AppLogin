@@ -1,15 +1,7 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
- branches:
-   include:
-     - main
-
-pool:
-  vmImage: ubuntu-latest
+  branches:
+    include:
+      - main
 
 parameters:
   - name: environment
@@ -25,6 +17,8 @@ variables:
   - name: imagename
     value: appogin
 
+pool:
+  vmImage: Default
 stages:
   - stage: Build
     displayName: "Build Application"
@@ -33,39 +27,37 @@ stages:
         steps:
           - task: Maven@4
             inputs:
-               mavenPomFile: "pom.xml"
-               goals: "clean package"
+              mavenPomFile: "pom.xml"
+              goals: "clean package"
 
   - stage: DockerBuildPush
-    dependsOn: build
+    dependsOn: Build
     jobs:
       - job: Docker
         steps:
           - task: Docker@2
             inputs:
-              containerRegistry:  'AzureCR-serviceconnection'
-              repository: "$(imageName)"
+              containerRegistry: 'AzureCR-serviceconnection'   # Docker Registry connection
+              repository: "$(imagename)"
               command: "buildAndPush"
               Dockerfile: '**/Dockerfile'
-              
+
   - stage: Deploy
     displayName: "Deploy to AKS"
-    dependsOn: Docker
+    dependsOn: DockerBuildPush
     jobs:
       - deployment: DeployApp
-        environment: ${{parameters.environment}}
+        environment: ${{ parameters.environment }}
         strategy:
-         runOnce:
-           deploy:
-             steps:
-               - task: Kubernetes@1
-                 inputs:
-                   connectionType: Azure Resource Manager
-                   azureSubscriptionEndpoint:  "Azure-ServiceConnection"
-                   azureResourceGroup: "rg-${{parameters.environment }}"
-                   kubernetesCluster: "aks-${{parameters.environment }}"
-                   command: apply
-                   useConfigurationFile:  true
-
-
-
+          runOnce:
+            deploy:
+              steps:
+                - task: Kubernetes@1
+                  inputs:
+                    connectionType: Azure Resource Manager
+                    azureSubscriptionEndpoint: 'Zomato-ARG'   # 👈 ARM connection, not Docker
+                    azureResourceGroup: "rg-${{ parameters.environment }}"
+                    kubernetesCluster: "aks-${{ parameters.environment }}"
+                    command: apply
+                    useConfigurationFile: true
+                    configuration: 'manifests/deployment.yaml'
