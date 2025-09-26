@@ -18,30 +18,59 @@ variables:
     value: appogin
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: ubuntu-latest   # Microsoft-hosted agent
+
+# ---------------- Build Stage ----------------
 stages:
   - stage: Build
     displayName: "Build Application"
     jobs:
       - job: MavenBuild
         steps:
+          # ✅ Cache Maven dependencies
+          - task: Cache@2
+            inputs:
+              key: 'maven | "$(Agent.OS)" | pom.xml'
+              restoreKeys: |
+                maven | "$(Agent.OS)"
+              path: $(MAVEN_USER_HOME)/.m2
+            displayName: "Cache Maven dependencies"
+
+          # ✅ Build without running tests to avoid failing build
           - task: Maven@4
             inputs:
-              mavenPomFile: "pom.xml"
-              goals: "clean package"
+              mavenPomFile: 'pom.xml'
+              goals: 'clean package -DskipTests'
 
-  - stage: DockerBuildPush
+# ---------------- Test Stage ----------------
+  - stage: Test
+    displayName: "Run Unit Tests"
     dependsOn: Build
+    jobs:
+      - job: MavenTest
+        steps:
+          - task: Maven@4
+            inputs:
+              mavenPomFile: 'pom.xml'
+              goals: 'test'
+              publishJUnitResults: true
+              testResultsFiles: '**/surefire-reports/*.xml'
+
+# ---------------- Docker Build & Push Stage ----------------
+  - stage: DockerBuildPush
+    displayName: "Build & Push Docker Image"
+    dependsOn: Test
     jobs:
       - job: Docker
         steps:
           - task: Docker@2
             inputs:
-              containerRegistry: 'AzureCR-serviceconnection'   # Docker Registry connection
-              repository: "$(imagename)"
-              command: "buildAndPush"
+              containerRegistry: 'AzureCR-serviceconnection'   # Replace with your Docker Registry connection
+              repository: '$(imagename)'
+              command: 'buildAndPush'
               Dockerfile: '**/Dockerfile'
 
+# ---------------- Deploy Stage ----------------
   - stage: Deploy
     displayName: "Deploy to AKS"
     dependsOn: DockerBuildPush
@@ -55,7 +84,7 @@ stages:
                 - task: Kubernetes@1
                   inputs:
                     connectionType: Azure Resource Manager
-                    azureSubscriptionEndpoint: 'Zomato-ARG'   # 👈 ARM connection, not Docker
+                    azureSubscriptionEndpoint: 'Zomato-ARG'   # Replace with your ARM service connection
                     azureResourceGroup: "rg-${{ parameters.environment }}"
                     kubernetesCluster: "aks-${{ parameters.environment }}"
                     command: apply
