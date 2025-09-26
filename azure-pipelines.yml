@@ -33,7 +33,7 @@ stages:
               key: 'maven | "$(Agent.OS)" | pom.xml'
               restoreKeys: |
                 maven | "$(Agent.OS)"
-              path: $(MAVEN_USER_HOME)/.m2
+              path: $(HOME)/.m2   # ✅ Correct path on Linux agents
             displayName: "Cache Maven dependencies"
 
           # ✅ Build without running tests to avoid failing build
@@ -90,3 +90,4 @@ stages:
                     command: apply
                     useConfigurationFile: true
                     configuration: 'manifests/deployment.yaml'
+
