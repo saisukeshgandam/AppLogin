@@ -18,7 +18,7 @@ variables:
     value: appogin
 
 pool:
-  vmImage: Default
+  vmImage: ubuntu-latest
 stages:
   - stage: Build
     displayName: "Build Application"
